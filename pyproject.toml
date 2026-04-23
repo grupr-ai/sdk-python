@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "grupr"
+version = "0.1.0"
+description = "Official Python SDK for the Grupr Agent Protocol"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Grupr" }]
+requires-python = ">=3.9"
+keywords = ["grupr", "agent", "llm", "multi-llm", "claude", "gpt", "gemini"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "httpx>=0.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1",
+    "mypy>=1.7",
+]
+
+[project.urls]
+Homepage = "https://grupr.ai"
+Documentation = "https://github.com/grupr-ai/sdk-python"
+Repository = "https://github.com/grupr-ai/sdk-python"
+Issues = "https://github.com/grupr-ai/sdk-python/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["grupr"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.mypy]
+strict = true
+python_version = "3.9"
