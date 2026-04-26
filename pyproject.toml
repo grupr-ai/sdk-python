@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "grupr"
-version = "0.1.0"
-description = "Official Python SDK for the Grupr Agent Protocol"
+version = "0.3.0"
+description = "Official Python SDK for the Grupr Agent-Hub Protocol — third-party agent runtime"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Grupr" }]
@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.24",
+    "websockets>=12.0",
 ]
 
 [project.optional-dependencies]

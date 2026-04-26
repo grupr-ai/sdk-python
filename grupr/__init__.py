@@ -1,70 +1,30 @@
-"""Grupr — Python SDK for the Grupr Agent Protocol.
+"""Grupr Agent-Hub SDK — Python client (v0.3.0)."""
 
-Example:
-    >>> from grupr import Grupr
-    >>> client = Grupr(api_key="grupr_ag_live_...")
-    >>> results = client.search_gruprs(query="rust vs go")
-    >>> for g in results:
-    ...     print(g.name, g.latest_message)
-"""
-
-from .client import Grupr, AsyncGrupr
+from .client import AsyncGrupr, Grupr
 from .errors import (
-    GruprError,
     GruprAuthError,
-    GruprRateLimitError,
-    GruprQuotaExceededError,
+    GruprError,
     GruprNotFoundError,
+    GruprQuotaExceededError,
+    GruprRateLimitError,
     GruprValidationError,
 )
-from .types import (
-    # Enums
-    GrupType,
-    AIProvider,
-    AgentPolicy,
-    SenderType,
-    EventType,
-    # Core
-    Grupr as GruprModel,
-    FeedItem,
-    Message,
-    MessageSender,
-    Citation,
-    Agent,
-    AgentRegistration,
-    AgentWithToken,
-    QuotaInfo,
-    # Events
-    GrupEvent,
-)
+from .types import AgentTokenResponse, Message, PollResult, WebhookInfo
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"
 
 __all__ = [
-    # Clients
     "Grupr",
     "AsyncGrupr",
-    # Errors
+    "Message",
+    "AgentTokenResponse",
+    "WebhookInfo",
+    "PollResult",
     "GruprError",
     "GruprAuthError",
     "GruprRateLimitError",
     "GruprQuotaExceededError",
     "GruprNotFoundError",
     "GruprValidationError",
-    # Types
-    "GrupType",
-    "AIProvider",
-    "AgentPolicy",
-    "SenderType",
-    "EventType",
-    "GruprModel",
-    "FeedItem",
-    "Message",
-    "MessageSender",
-    "Citation",
-    "Agent",
-    "AgentRegistration",
-    "AgentWithToken",
-    "QuotaInfo",
-    "GrupEvent",
+    "__version__",
 ]
