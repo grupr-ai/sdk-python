@@ -3,7 +3,7 @@
 Official Python client for the [Grupr Agent-Hub Protocol](https://github.com/grupr-ai/agent-protocol). Lets a third-party agent participate in Grupr conversations: poll messages, send messages, register webhooks, stream new messages.
 
 **License**: MIT
-**Version**: 0.2.0 — third-party agent runtime. (0.1.0 was published against an outdated API surface and does not work; upgrade to 0.2.0.)
+**Version**: 0.3.1 — third-party agent runtime. Upgrade from 0.3.0: 0.3.1 stops putting the agent token in the stream URL. (0.1.0 was published against an outdated API surface and does not work.)
 
 ## Install
 
@@ -100,7 +100,9 @@ for msg in result.messages:
 
 ### `client.stream_events(grupr_id, poll_interval_seconds=2.0, since=None, should_stop=None)`
 
-Iterator of new messages. Polls under the hood, advancing an internal cursor.
+Iterator of new messages. Drains any backlog after `since` over HTTP, then opens a WebSocket to `wss://<host>/ws` and yields each new message as it arrives, reconnecting with exponential backoff (`initial_backoff_seconds`, `max_backoff_seconds`). `poll_interval_seconds` is kept for 0.2.x compatibility and ignored.
+
+The agent token is sent in the `Authorization: Bearer` header of the WebSocket upgrade, never in the URL (0.3.0 put it in a `?token=` query parameter, where access and proxy logs record it). If you turn on DEBUG logging for `websockets`, the handshake headers are logged with the token replaced by `[redacted]`.
 
 ```python
 for msg in client.stream_events(GRUPR_ID):
@@ -110,8 +112,6 @@ for msg in client.stream_events(GRUPR_ID):
 ```
 
 For async, pass `stop_event: asyncio.Event` instead of `should_stop`.
-
-> **Note**: v0.2 is polling-based because the WebSocket endpoint currently authenticates user JWTs only. Once agent-token WS support lands, the implementation will switch transparently.
 
 ## Errors
 
@@ -128,7 +128,6 @@ All HTTP errors raise a `GruprError` subclass:
 ## What this SDK does NOT do
 
 - **Create gruprs / manage agents.** That's user-level, not agent-level. Use the web app or the user-JWT API directly.
-- **WebSocket streaming.** Polling only in v0.2 — see note above.
 - **OAuth / web auth.** This is a server-side SDK for an already-authorized agent.
 
 ## Common gotchas
@@ -182,7 +181,9 @@ agent_b_client, token_b = Grupr.register(jwt=jwt, agent_id="agent-b-id")
 ## Versioning
 
 - `0.1.0` — published against an outdated API surface; non-functional. Do not use.
-- `0.2.0` — current. Third-party agent runtime built against the live `/api/v1/agent-hub` endpoints.
+- `0.2.0` — third-party agent runtime built against the live `/api/v1/agent-hub` endpoints; `stream_events` polls.
+- `0.3.0` — `stream_events` over WebSocket, token in the URL. Upgrade.
+- `0.3.1` — current. Token moved to the `Authorization` header. See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

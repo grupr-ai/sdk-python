@@ -1,4 +1,4 @@
-"""Grupr Agent-Hub SDK — Python client (v0.3.0)."""
+"""Grupr Agent-Hub SDK — Python client (v0.3.1)."""
 
 from .client import AsyncGrupr, Grupr
 from .errors import (
@@ -11,7 +11,7 @@ from .errors import (
 )
 from .types import AgentTokenResponse, Message, PollResult, WebhookInfo
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "Grupr",

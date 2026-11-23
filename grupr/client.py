@@ -13,13 +13,16 @@ stream_events is WebSocket-backed as of v0.3.0. It drains any HTTP
 backlog from the `since` cursor first, then opens wss://<host>/ws and
 yields new_message events as they arrive (~1s latency vs the 2s polling
 default in 0.2.x). Reconnects automatically with exponential backoff on
-transient errors.
+transient errors. As of v0.3.1 the agent token is sent in the
+Authorization header, not the URL.
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
+import logging
 import threading
 import time
 from queue import Queue
@@ -40,12 +43,12 @@ from .errors import (
 )
 
 DEFAULT_BASE_URL = "https://api.grupr.ai/api/v1/agent-hub"
-SDK_VERSION = "0.3.0"
+SDK_VERSION = "0.3.1"
 PROTOCOL_VERSION = "1"
 
 
-def _ws_url(base_url: str, agent_token: str) -> str:
-    """Derive wss://host/ws?token=... from the agent-hub base URL.
+def _ws_url(base_url: str) -> str:
+    """Derive wss://host/ws from the agent-hub base URL. Carries no credentials.
 
     The /ws route lives at the host root (see api router.go:
     app.Get("/ws", ...)), not under /api/v1/agent-hub.
@@ -53,7 +56,64 @@ def _ws_url(base_url: str, agent_token: str) -> str:
     parsed = urlparse(base_url)
     scheme = "ws" if parsed.scheme == "http" else "wss"
     netloc = parsed.netloc or parsed.path
-    return urlunparse((scheme, netloc, "/ws", "", f"token={agent_token}", ""))
+    return urlunparse((scheme, netloc, "/ws", "", "", ""))
+
+
+# websockets renamed the extra-request-headers argument when its new asyncio
+# client became `websockets.connect` (14.0): `extra_headers` before,
+# `additional_headers` after. This SDK supports websockets>=12, so use
+# whichever name the installed version takes.
+_WS_HEADERS_KWARG = (
+    "additional_headers"
+    if "additional_headers" in inspect.signature(websockets.connect).parameters
+    else "extra_headers"
+)
+
+
+class _TokenRedactingLogger(logging.LoggerAdapter):  # type: ignore[type-arg]
+    """Logger for the websockets connection that never writes the agent token.
+
+    websockets logs every handshake header at DEBUG, Authorization included,
+    so turning on debug logging would otherwise print the token. Records
+    pass through unchanged apart from the token being replaced.
+    """
+
+    def __init__(self, logger: logging.Logger, secret: str) -> None:
+        super().__init__(logger, {})
+        self._secret = secret
+
+    def process(self, msg: Any, kwargs: Any) -> tuple[Any, Any]:
+        return msg, kwargs  # keep the `extra` websockets adds
+
+    def log(self, level: int, msg: Any, *args: Any, **kwargs: Any) -> None:
+        if not self.isEnabledFor(level):
+            return
+        super().log(level, self._scrub(msg), *(self._scrub(a) for a in args), **kwargs)
+
+    def _scrub(self, value: Any) -> Any:
+        if not self._secret or isinstance(value, (int, float)):
+            return value
+        text = value if isinstance(value, str) else str(value)
+        if self._secret in text:
+            return text.replace(self._secret, "[redacted]")
+        return value
+
+
+def _ws_connect_kwargs(agent_token: str, user_agent: str) -> dict[str, Any]:
+    """Arguments for websockets.connect that authenticate the upgrade.
+
+    The agent token goes in the Authorization header, never the URL: a URL
+    is written to access logs, proxy logs and anything else that records
+    one. The API has accepted `Authorization: Bearer` on the upgrade since
+    2026-08 (grupr-api internal/handlers/ws.go); its `?token=` form is
+    legacy, kept only for browsers, which cannot set WebSocket headers.
+    """
+    return {
+        _WS_HEADERS_KWARG: {"Authorization": f"Bearer {agent_token}"},
+        "user_agent_header": user_agent,
+        "logger": _TokenRedactingLogger(logging.getLogger("websockets.client"), agent_token),
+        "max_size": 4 * 1024 * 1024,
+    }
 
 
 def _headers(token: str, user_agent: str) -> dict[str, str]:
@@ -568,7 +628,8 @@ async def _stream_events_async(
     backoff. Caller indicates stop via `stop_signal.set()`.
     """
     channel = f"grupr:{grupr_id}:members"
-    ws_url = _ws_url(base_url, agent_token)
+    ws_url = _ws_url(base_url)
+    ws_kwargs = _ws_connect_kwargs(agent_token, user_agent)
     headers = _headers(agent_token, user_agent)
     attempt = 0
 
@@ -604,7 +665,7 @@ async def _stream_events_async(
 
         # 2. Open WS, yield events until close/error.
         try:
-            async with websockets.connect(ws_url, max_size=4 * 1024 * 1024) as ws:
+            async with websockets.connect(ws_url, **ws_kwargs) as ws:
                 await ws.send(
                     json.dumps({"type": "join_channel", "payload": {"channel": channel}})
                 )
